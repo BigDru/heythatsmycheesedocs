@@ -24,4 +24,5 @@ This website serves as a reference for what different components of the game are
 
    server
    client
+   communication
 

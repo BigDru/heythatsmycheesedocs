@@ -3,7 +3,7 @@
 
 Server
 ======
-The main game server is a binary that is launched for every ongoing game. It is spun up by an external program that passes in the player ids for the active players. We can have players and spectators join an active game. They all will use their unique player ids to communicate with the server.
+The main game server is a binary that is launched for every ongoing game. It is spun up by an external program that passes in the player ids for the active players. We can have players and spectators join an active game. All connected clients will use their unique player ids to communicate with the server.
 
 Main
 ----
