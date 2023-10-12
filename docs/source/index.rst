@@ -22,7 +22,8 @@ This website serves as a reference for what different components of the game are
    :maxdepth: 3
    :caption: Components
 
-   server
+   game_server
    client
    communication
+   main_server
 
