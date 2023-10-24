@@ -39,15 +39,18 @@ Here the player can select the number of players in the game and can even invite
 
 If the main player wishes to invite their friend, they will need to first click on the plus icon. The client will send a :code:`SERVER_REQUEST_FRIENDLIST` message to the server. The server will reply with a :code:`SERVER_FRIENDLIST` message containing the friends and their online status (offline / online / in-game). A list will then appear from which the player can then select one online friend to send an invite to.
 
-Once a friend from the list is selected, the client will send a :code:`SERVER_SEND_GAME_INVITE` message containing the friend's name (player_ids are kept private for security reasons). The server will add this invite to a list of pending invites. The friends' client will then receive a game invite (:code:`SERVER_FORWARD_GAME_INVITE` message) which can either be declined (:code:`SERVER_GAME_INVITE_DECLINED` -> :code:`SERVER_FORWARD_GAME_INVITE_DECLINED`) or accepted (:code:`SERVER_GAME_INVITE_ACCEPTED` -> :code:`SERVER_LOBBY_UPDATE`). The server will remove the invite from the pending invite list after receiving the response from the friend client. If the friend doesn't accept within a certain amount of time (60 seconds), the invite will become void and a :code:`SERVER_GAME_INVITE_TIMEDOUT` message will be sent to both the main client and the friend client.
+Once a friend from the list is selected, the client will send a :code:`SERVER_SEND_GAME_INVITE` message containing the friend's name (player_ids are kept private for security reasons). The server will add this invite to a list of pending invites. The friends' client will then receive a game invite (:code:`SERVER_FORWARD_GAME_INVITE` message) which can either be declined (:code:`SERVER_GAME_INVITE_DECLINED` \→ :code:`SERVER_FORWARD_GAME_INVITE_DECLINED`) or accepted (:code:`SERVER_GAME_INVITE_ACCEPTED` \→ :code:`SERVER_LOBBY_UPDATE`). The server will remove the invite from the pending invite list after receiving the response from the friend client. If the friend client accepted, it will not change to the lobby screen until it receives a :code:`SERVER_LOBBY_UPDATE` message. If the friend doesn't accept within a certain amount of time (60 seconds), the invite will become void and a :code:`SERVER_GAME_INVITE_TIMEOUT` message will be sent to both the main client and the friend client.
 
-The main client can also cancel an invite with a :code:`SERVER_CANCEL_GAME_INVITE`. Which would then send a :code:`SERVER_VOID_GAME_INVITE` to the friend client and also remove the invite from the pending invite list.
+The main client can also cancel an invite with a :code:`SERVER_CANCEL_GAME_INVITE`. Which would then send a :code:`SERVER_VOID_GAME_INVITE` to the friend client and also remove the invite from the pending invite list. :code:`SERVER_GAME_INVITE_VOIDED` will be sent to the main client to confirm invite cancelation.
 
-Once joined, the main client can send a :code:`SERVER_KICK` message which kicks the friend. The server will send :code:`SERVER_LOBBY_UPDATE` to the friend client. Likewise, the friend can choose to leave the lobby with :code:`SERVER_LEAVE_LOBBY` -> :code:`SERVER_LOBBY_UPDATE`.
+Once joined, the main client can send a :code:`SERVER_KICK` message which kicks the friend. The server will send :code:`SERVER_LOBBY_UPDATE` to the friend client. Likewise, the friend can choose to leave the lobby with :code:`SERVER_LEAVE_LOBBY` \→ :code:`SERVER_LOBBY_UPDATE`.
 
 Note: :code:`SERVER_LOBBY_UPDATE` is multipurpose. It will container the full list of players in the lobby and it will be sent to everyone (main client + friend client). As mentioned it will be sent when a friend accepts an invite, when they are kicked from the lobby, and when they leave the lobby themselves.
 
-The lobby itself is the prime resident here. If the creator leaves, any friends that have joined will remain in the room. When the last player leaves the lobby, it will be removed.
+The lobby itself is the prime resident here. If the creator leaves, any friends that have joined will remain in the room. Remaining players will be promoted to "host" in the order they received invites. Host capabilities involve kicking players and starting the game. When the last player leaves the lobby, it will be removed.
+
+Message List
+~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -85,6 +88,9 @@ The lobby itself is the prime resident here. If the creator leaves, any friends 
    * - :code:`SERVER_CANCEL_GAME_INVITE`
      - Cancel active invite
      - Rx
+   * - :code:`SERVER_GAME_INVITE_VOIDED`
+     - Confirm invite has been voided
+     - Tx
    * - :code:`SERVER_VOID_GAME_INVITE`
      - Forward invite cancelation
      - Tx
@@ -94,7 +100,7 @@ The lobby itself is the prime resident here. If the creator leaves, any friends 
    * - :code:`SERVER_LEAVE_LOBBY`
      - Player leaves lobby. Triggers :code:`SERVER_LOBBY_UPDATE`.
      - Rx
-   * - :code:`SERVER_GAME_INVITE_TIMEDOUT`
+   * - :code:`SERVER_GAME_INVITE_TIMEOUT`
      - Friend did not accept or decline in time.
      - Tx
 
@@ -104,19 +110,19 @@ Due to the nature of the internet, there are a few race conditions that can occu
 
 As mentioned above, to minimize weird screens on the friend side, the friend will wait for a :code:`SERVER_LOBBY_UPDATE` message from the server before loading the lobby screen.
 
-Let's start by looking at timeouts. The :code:`SERVER_GAME_INVITE_TIMEDOUT` message is sent out by the server to both the main client and the friend.
+Let's start by looking at timeouts. The :code:`SERVER_GAME_INVITE_TIMEOUT` message is sent out by the server to both the main client and the friend.
 
  - If the main client cancels the invite and the timeout message arrives afterwards, the main client can simply ignore that message. Assuming the friend client hasn't accepted / declined the invite (covered next), the friend client can show an "invite expired" notification.
  - If the friend client accepts or declines the invite and then the timeout arrives, the server will not do anything. The friend client can once again simply post the "invite expired" notification.
 
-Now let's look at voiding invites.
+Now let's look at voiding invites. Recall that the main client expects a :code:`SERVER_GAME_INVITE_VOIDED` confirmation message before updating the UI.
 
  - If the main client receives a :code:`SERVER_LOBBY_UPDATE` message after it has sent the :code:`SERVER_CANCEL_GAME_INVITE` message, the server has already moved the friend into the lobby. Therefore, the main client will need to add the player to the lobby and display a "Invite cannot be cancelled" notification.
- - If the main client receives a :code:`SERVER_FORWARD_GAME_INVITE_DECLINED` message after it has sent the :code:`SERVER_CANCEL_GAME_INVITE` message, the server has already voided the invite. The main client can therefore remove the pending invite animation as if their cancellation went through. Note: the timeout case is covered above.
- - If the friend client receives a :code:`SERVER_VOID_GAME_INVITE` message after they have sent the acceptance, they will receive a notification that the invite was voided and they will not join the lobby screen. At this time the server has already voided the invite. Note: normally the friend client will receive a :code:`SERVER_LOBBY_UPDATE` message before switching screens.
- - If the friend client receives a :code:`SERVER_VOID_GAME_INVITE` message after they have declined the invite, the friend client does not need to do anything. At this time the server has already voided the invite.
+ - If the main client receives a :code:`SERVER_FORWARD_GAME_INVITE_DECLINED` message after it has sent the :code:`SERVER_CANCEL_GAME_INVITE` message, the server has already removed the invite from the active invite list. The main client can therefore remove the pending invite animation as if their cancellation went through (:code:`SERVER_GAME_INVITE_VOIDED`). Note: the timeout case is covered above.
+ - If the friend client receives a :code:`SERVER_VOID_GAME_INVITE` message after they have sent the acceptance, they will receive a notification that the invite was voided and they will not join the lobby screen. At this time the server has already voided the invite. Recall that the friend client normally receives a :code:`SERVER_LOBBY_UPDATE` message before switching screens.
+ - If the friend client receives a :code:`SERVER_VOID_GAME_INVITE` message after they have declined the invite, the friend client does not need to do anything. At this time the server has already removed the active invite.
 
-The final condition is when all three entities (main client, friend client, and server) all do something at the same time. The only thing that the server does without the action of a client is timeout the invite. Since this architecture is server-authoritative, we will hold true to this and consider the invite timedout. Each client will then post the appropriate notifications depending on the situation.
+The final condition is when all three entities (main client, friend client, and server) all do something at the same time. The only thing that the server does without the action of a client is timeout the invite. Since this architecture is server-authoritative, we will hold true to this and consider the invite as timed out. Each client will then post the appropriate notifications depending on the situation.
 
 Starting the Game
 ~~~~~~~~~~~~~~~~~
