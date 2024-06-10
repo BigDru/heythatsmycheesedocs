@@ -29,7 +29,9 @@ Play (Play a Game)
 
 Typical Flow
 ~~~~~~~~~~~~
-Clicking on the "Play" button brings the player to a lobby screen. The client will send a :code:`SERVER_CREATE_LOBBY` message and have their player_id be the key in the :code:`map_player_id_to_lobby_id` map. Additionally, a map :code:`map_lobby_id_to_player_ids` will have a new lobby added that links back to the players. As the lobby is just an id and not a complex structure there is no need to keep a list of lobbies. The lobby screen looks like this:
+Clicking on the "Play" button brings the player to a lobby screen. The client will send a :code:`SERVER_CREATE_LOBBY` message. Since the player_id is unique we will use that as the lobby_id as well. The lobby_id will change as the host changes. The lobby_id (player_id) will be added to a map :code:`map_lobby_id_to_player_ids`.
+
+The lobby screen looks like this:
 
 .. image:: _static/images/LobbyScreen.jpeg
    :width: 720
