@@ -30,7 +30,7 @@ jobs:
 
       # Build the documentation
       - name: Build Sphinx documentation
-        run: make.sh
+        run: ./make.sh
 
       # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
